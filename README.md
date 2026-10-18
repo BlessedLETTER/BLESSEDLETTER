@@ -1,4 +1,4 @@
-## 欢迎来到我的仓库！👋  README在文件夹里面，这个是空白的（
+## 欢迎来到我的仓库！👋
 
 <!--
 **BlessedLETTER/BLESSEDLETTER** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile.
