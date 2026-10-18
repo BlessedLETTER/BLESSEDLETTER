@@ -1,0 +1,7 @@
+/* ZSchedule 资源脚本：仅嵌入应用程序清单，启用 comctl32 v6 视觉样式与 DPI 感知 */
+#include <windows.h>
+
+1 RT_MANIFEST "zsched.manifest"
+
+/* 应用图标：多尺寸 png 压缩 ico */
+1 ICON "app.ico"
