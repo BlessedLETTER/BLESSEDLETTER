@@ -1,5 +1,5 @@
 /* 临时探针：直接 #include csvimport.c，调用里面的 static 函数做离线验证。
-   编译（在工程目录，见 _tools/_probe_build.bat）：
+   手动编译示例（在工程目录；此一次性探针未接入 CMake）：
      gcc -O1 -Wall -Wextra -DUNICODE -D_UNICODE -ffunction-sections -fdata-sections
          -Wl,--gc-sections -o _tools\csvprobe.exe _tools\csvprobe.c model.c <libs>
    输出写到 _tools\csvprobe_out.txt（UTF-8 with BOM）。 */

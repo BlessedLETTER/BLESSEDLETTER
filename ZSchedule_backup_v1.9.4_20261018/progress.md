@@ -4,6 +4,9 @@
 > 最后更新：2026-10-17（v1.9.1：便笺墙卡片上的照片也改成 v1.9 那套——完整显示 / 四角缩放 / 拖动只改位置）。
 > 项目目录：`C:\Users\Crychic\.zcode\workspace\default\ZSchedule`
 
+> 构建说明更新（2026-10-18）：当前统一使用 CMake，见 §1、§6 和 README。
+> 下文历史版本的验证记录保留当时的构建方式与校验值。
+
 ---
 
 ## 0. 现状速览
@@ -79,18 +82,17 @@
 
 | 项 | 说明 |
 | --- | --- |
-| 工具链 | 项目旁便携工具链 `..\tools\w64devkit`（MinGW-w64 gcc 13.1）；`build.bat` 会自动把它加进 PATH，找不到 gcc 时退回 MSVC |
-| 构建 | `build.bat`（GBK + **CRLF**）或 `mingw32-make`（`Makefile`，UTF-8） |
-| 输出 | `笺.exe`（`build.bat` 的 `set OUT=笺.exe`；`Makefile` 的 `TARGET := 笺.exe`） |
-| 资源 | `zsched.rc` → `zsched_res.o`（含 `1 RT_MANIFEST` + `1 ICON "app.ico"`），`windres` 编译 |
+| 工具链 | CMake 3.21+；MinGW-w64 / w64devkit（手动将 `bin` 加入 `PATH`），或 Visual Studio 2019 16.8+ 与 Windows SDK |
+| 构建 | `cmake -S . -B build -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release`，然后 `cmake --build build --config Release --parallel`；MSVC 命令见 README |
+| 输出 | `build\bin\Release\笺.exe`（CMake 目标 `zschedule`，`OUTPUT_NAME` 为 `笺`） |
+| 资源 | CMake 调用资源编译器处理 `zsched.rc`（含 manifest 和图标），中间文件保存在构建目录；资源更新后自动重编译 |
 | 源码 | `main.c model.c image.c richtext.c weekview.c imgview.c stickies.c noteview.c paper.c ui_main.c ui_edit.c csvimport.c sound.c` |
-| 链接库 | `comctl32 gdi32 comdlg32 shell32 msimg32 gdiplus ole32 shlwapi user32` + v1.6 新增 `winmm mfplat mf mfuuid`（铃声播放） |
+| 链接库 | `comctl32 gdi32 comdlg32 shell32 msimg32 gdiplus ole32 shlwapi user32 advapi32 winmm mfplat mf mfuuid`，由 `target_link_libraries` 统一管理 |
 
 **编译前必须 `taskkill /IM 笺.exe /F`**（exe 被占用时 gcc 链接会失败，且失败信息不直观）。
 
-**最新版备份**：`..\ZSchedule_backup_v1.5_20261017\`（同级目录，独立于本工程）——
-里面是**当前最新版**的完整源码 + 编译好的 `笺.exe`（629,353 字节，与工程/桌面字节相同）+ `备份说明.md`，
-双击即可运行；它自己的 `build.bat` 也能独立编译（会自动用 `..\tools\w64devkit`）。做新备份的方法见 §6。
+**当前源码目录**可独立作为 CMake 的 `-S` 目录。做新备份的方法见 §6；
+本仓库不附带编译产物，需先构建后运行 `build\bin\Release\笺.exe`。
 
 ---
 
@@ -448,7 +450,7 @@
 - 接入：`remind_fire()` 里**先收旧弹窗、再开新弹窗、最后播新铃声**（顺序很重要：弹窗销毁时会 `snd_stop()`）；
   `remp_proc` 的 `WM_DESTROY`（= 点击关闭 / 30 秒自动关）`snd_stop()`。
   编辑窗「铃声…」菜单：`试听（在本程序里播放）` 4303 / `停止铃声` 4306 / `用默认播放器打开` 4307。
-- 编译链接要加 `-lwinmm -lmfplat -lmf -lmfuuid`（build.bat / Makefile 都已加）。
+- 编译需要链接 `winmm mfplat mf mfuuid`，已由 CMake 的 `target_link_libraries` 配置。
 
 ### U. CSV 课表导入（v1.5）
 - 需求：导入 CSV 课表文件 → **识别格式内容**（**正则匹配**保证精度）→ 逐行**生成便笺形式**；
@@ -689,7 +691,7 @@
 - `GetTextExtentExPointW` 的 `lpnDx` 对 CJK 不可靠 → 换行用二分 + `GetTextExtentPoint32W`。
 - `rtf_to_plain` 的 `BYTE bytes[4]` 太小，长中文段落会被截断（已改成 1024 + 快满就 flush）。
 - 照片出现就吞掉正文（`drewBig` 门控）是错的：`drewBig` 只该跳过底部缩略图行。
-- **编码纪律**：`build.bat` 必须是 **GBK + CRLF**（用 Python 改它时要用 `newline='\r\n'`，否则 cmd 报「'UT' 不是内部或外部命令」）；其余源文件 UTF-8，`stickies.c` 里的中文字面量全部写成 `\uXXXX` 转义（否则 gcc 执行字符集报错）。
+- **编码纪律**：CMake 配置与源文件使用 UTF-8；CMake 已为编译器设置 UTF-8 源码编码，`stickies.c` 里的中文字面量保留现有的 `\uXXXX` 转义形式。
 - **补丁脚本纪律**：Python 改文件必须**检测并保留各文件自身编码**；`s = rep(s, ...)` 一定要**赋值**（漏赋值就是静默空操作）；改完用 `findstr` 复核；`py -c` 多行在 cmd 里会静默失败 → 写成脚本文件；PowerShell 内联中文/here-string 会被乱码 → 写成 .ps1 文件。
 - **不要动用户自己的文件**：`z3.py`~`z6.py` 是用户写的，`image.c` 里的 `FullEnt` / `img_get_full` 也是用户加的（保留 `IMG_FULL_CACHE` 宏，只加兼容入口 `img_draw_cover_full`）。
 - **验证方式**：这台机器上截图经常输给前台竞争（ZCode/浏览器盖住窗口），所以以**数值/文件级验证**为主（临时探针 dump 成 txt/bmp、`findstr` 复核、`certutil -hashfile` 比对），需要看界面时才 `SetForegroundWindow` + 截局部区域。
@@ -849,13 +851,15 @@ rem 1) 编译前先关掉正在运行的实例（否则链接失败）
 taskkill /IM 笺.exe /F
 rem 2) 构建
 cd /d C:\Users\Crychic\.zcode\workspace\default\ZSchedule
-build.bat
+rem 先将 MinGW-w64 / w64devkit 的 bin 加入 PATH
+cmake -S . -B build -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release --parallel
 rem 3) 同步到桌面（用户日常用的是桌面那份）
-copy /Y 笺.exe C:\Users\Crychic\Desktop\笺.exe
+copy /Y build\bin\Release\笺.exe C:\Users\Crychic\Desktop\笺.exe
 ```
 
 - 改完务必**检查编译输出是否零 error / 零 warning**（`-Wall -Wextra` 全开）。
-- 改了 `zsched.rc` / `app.ico` 后确认 `windres` 真的重跑（`zsched_res.o` 的时间戳要更新）。
+- 改了 `zsched.rc` / `zsched.manifest` / `app.ico` 后确认 CMake 重新编译资源并链接主程序。
 - 品牌相关字符串只应出现在 `APP_TITLE` / `APP_ICON_ID` / `zsched.rc` 三处，别散落硬编码。
 - **版本记录（git）**：本机没装 git，仓库是用 dulwich（纯 Python）建的，位于工程目录 `.git`：
   ```bat
@@ -868,7 +872,7 @@ copy /Y 笺.exe C:\Users\Crychic\Desktop\笺.exe
 - **给某个旧版本打包一份独立备份**（v1.4 / v1.5 都是这么做的）：
   1. 用 dulwich 遍历目标提交的文件树写到新目录（`Tree.items()` 是 `(name, mode, sha)` 三元组；
      `mode & 0o040000` 是子目录要递归；`repo[sha].data` 是文件内容）；
-  2. 在新目录里跑 `build.bat`（它会自动找 `..\tools\w64devkit`）→ 得到可运行的 `笺.exe`；
+  2. 若导出的版本包含 `CMakeLists.txt`，在新目录里执行本节的 CMake 命令，产物为 `build\bin\Release\笺.exe`；更早版本按该版本自带的构建说明操作；
   3. 写一份 `备份说明.md`：来自哪个提交、与当前版本的差异、数据是否兼容、怎么运行/编译。
   4. 数据文件（`zsched_*.txt`）**不要**放进备份——它们是你的日程；版本之间数据格式兼容
      （v1.5 只多两行 `sndmode=`/`sndfile=`，旧版读到会忽略）。

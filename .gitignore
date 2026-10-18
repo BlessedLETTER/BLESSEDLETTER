@@ -15,6 +15,17 @@ bin/
 build/
 dist/
 
+# CMake generated files and local presets
+build-*/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+Testing/
+compile_commands.json
+CMakeUserPresets.json
+
 # Local portable compiler toolchain
 tools/w64devkit/
 
