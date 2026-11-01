@@ -1,0 +1,34 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": { "major": 3, "minor": 20, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "mingw",
+      "displayName": "MinGW-w64 (w64devkit, Release)",
+      "description": "使用项目旁的 ../tools/w64devkit 工具链，MinGW Makefiles，Release。",
+      "generator": "MinGW Makefiles",
+      "binaryDir": "${sourceDir}/build/mingw",
+      "environment": {
+        "PATH": "${sourceDir}/../tools/w64devkit/bin;$penv{PATH}"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_COMPILER": "${sourceDir}/../tools/w64devkit/bin/gcc.exe",
+        "CMAKE_RC_COMPILER": "${sourceDir}/../tools/w64devkit/bin/windres.exe",
+        "CMAKE_MAKE_PROGRAM": "${sourceDir}/../tools/w64devkit/bin/mingw32-make.exe",
+        "ZSCHED_BUILD_TEST_TOOLS": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "mingw",
+      "displayName": "Build with MinGW Makefiles",
+      "configurePreset": "mingw",
+      "environment": {
+        "PATH": "${sourceDir}/../tools/w64devkit/bin;$penv{PATH}"
+      },
+      "jobs": 8
+    }
+  ]
+}
