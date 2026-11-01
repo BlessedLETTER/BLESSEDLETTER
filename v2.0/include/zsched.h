@@ -1,0 +1,36 @@
+/* ZSchedule v2.0 · 过渡用总头：按层 include。新代码请直接 include 对应层的头。 */
+#ifndef ZSCHED_H
+#define ZSCHED_H
+
+#include "core/types.h"
+#include "core/theme.h"
+#include "ui/ids.h"
+#include "core/strbuf.h"
+#include "core/period.h"
+#include "core/fmt_time.h"
+#include "core/fmt_text.h"
+#include "core/paths.h"
+#include "core/textfile.h"
+#include "core/history.h"
+#include "core/appdata.h"
+#include "core/font.h"
+#include "core/geometry.h"
+#include "core/status.h"
+#include "core/board.h"
+#include "core/media/image.h"
+#include "core/media/richtext.h"
+#include "core/media/sound.h"
+#include "core/style/paper.h"
+#include "modules/schedule.h"
+#include "modules/countdown.h"
+#include "modules/timetable.h"
+#include "modules/notes.h"
+#include "modules/wall.h"
+#include "modules/week.h"
+#include "modules/editor.h"
+#include "modules/csv.h"
+#include "modules/viewer.h"
+#include "ui/flat.h"
+#include "app/app.h"
+
+#endif /* ZSCHED_H */
