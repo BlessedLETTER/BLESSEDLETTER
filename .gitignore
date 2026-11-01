@@ -1,0 +1,50 @@
+# MinGW / MSVC build outputs (including helper tools)
+*.exe
+*.o
+*.obj
+*.res
+*.dll
+*.a
+*.lib
+*.exp
+*.pdb
+*.ilk
+*.idb
+*.pch
+bin/
+build/
+dist/
+
+# CMake generated files and local presets
+build-*/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+Testing/
+compile_commands.json
+CMakeUserPresets.json
+
+# Local portable compiler toolchain
+tools/w64devkit/
+
+# ZSchedule runtime data and history
+zsched_*.txt
+zsched_history/
+_ttest/
+_ttest3/
+_ttest4/
+
+# Python helper caches
+__pycache__/
+*.py[cod]
+
+# Local editor and OS files
+.vs/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+Desktop.ini

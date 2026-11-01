@@ -2,7 +2,9 @@
 
 > 用途：开新对话继续开发时先读这份，避免重复劳动、避免踩已经踩过的坑。
 > 最后更新：2026-10-17（v1.9.1：便笺墙卡片上的照片也改成 v1.9 那套——完整显示 / 四角缩放 / 拖动只改位置）。
-> 项目目录：`C:\Users\Crychic\.zcode\workspace\default\ZSchedule`
+
+> 构建说明更新（2026-10-18）：当前统一使用 CMake，见 §1、§6 和 README。
+> 下文历史版本的验证记录保留当时的构建方式与校验值。
 
 ---
 
@@ -66,7 +68,7 @@
 - 上一轮（v1.5）：自选铃声（打开所选文件）+ CSV 课表导入（§3-T/§3-U）。
 - 更早：v1.4「下一节」名称行、v1.3.2 三项修复、逐段文字颜色与书签形态等。
 - 最新构建：`笺.exe` **743,863 字节**（2026-10-18 12:54），编译零 error / 零 warning；
-  MD5 `3eb2c2bc7995995869ed1a6ee49e470c`；桌面 `C:\Users\Crychic\Desktop\笺.exe` 已同步（见 §7）。
+  MD5 `3eb2c2bc7995995869ed1a6ee49e470c`；桌面副本已同步（见 §7）。
 - **版本现状**：当前 **v1.9.4**；已把它打包成独立备份目录 `..\ZSchedule_backup_v1.9.4_20261018\`
   （最新版源码 + 编译好的 `笺.exe` + `备份说明.md`），在 git 仓库之外、不受本项目影响。做新备份见 §6。
 - **git 提交历史**：`d21455b1`（初版 v1.3.1）→ `a6d86a46` → `2091601f`（= v1.3.2）
@@ -79,18 +81,17 @@
 
 | 项 | 说明 |
 | --- | --- |
-| 工具链 | 项目旁便携工具链 `..\tools\w64devkit`（MinGW-w64 gcc 13.1）；`build.bat` 会自动把它加进 PATH，找不到 gcc 时退回 MSVC |
-| 构建 | `build.bat`（GBK + **CRLF**）或 `mingw32-make`（`Makefile`，UTF-8） |
-| 输出 | `笺.exe`（`build.bat` 的 `set OUT=笺.exe`；`Makefile` 的 `TARGET := 笺.exe`） |
-| 资源 | `zsched.rc` → `zsched_res.o`（含 `1 RT_MANIFEST` + `1 ICON "app.ico"`），`windres` 编译 |
+| 工具链 | CMake 3.21+；MinGW-w64 / w64devkit（手动将 `bin` 加入 `PATH`），或 Visual Studio 2019 16.8+ 与 Windows SDK |
+| 构建 | `cmake -S . -B build -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release`，然后 `cmake --build build --config Release --parallel`；MSVC 命令见 README |
+| 输出 | `build\bin\Release\笺.exe`（CMake 目标 `zschedule`，`OUTPUT_NAME` 为 `笺`） |
+| 资源 | CMake 调用资源编译器处理 `zsched.rc`（含 manifest 和图标），中间文件保存在构建目录；资源更新后自动重编译 |
 | 源码 | `main.c model.c image.c richtext.c weekview.c imgview.c stickies.c noteview.c paper.c ui_main.c ui_edit.c csvimport.c sound.c` |
-| 链接库 | `comctl32 gdi32 comdlg32 shell32 msimg32 gdiplus ole32 shlwapi user32` + v1.6 新增 `winmm mfplat mf mfuuid`（铃声播放） |
+| 链接库 | `comctl32 gdi32 comdlg32 shell32 msimg32 gdiplus ole32 shlwapi user32 advapi32 winmm mfplat mf mfuuid`，由 `target_link_libraries` 统一管理 |
 
 **编译前必须 `taskkill /IM 笺.exe /F`**（exe 被占用时 gcc 链接会失败，且失败信息不直观）。
 
-**最新版备份**：`..\ZSchedule_backup_v1.5_20261017\`（同级目录，独立于本工程）——
-里面是**当前最新版**的完整源码 + 编译好的 `笺.exe`（629,353 字节，与工程/桌面字节相同）+ `备份说明.md`，
-双击即可运行；它自己的 `build.bat` 也能独立编译（会自动用 `..\tools\w64devkit`）。做新备份的方法见 §6。
+**当前源码目录**可独立作为 CMake 的 `-S` 目录。做新备份的方法见 §6；
+本仓库不附带编译产物，需先构建后运行 `build\bin\Release\笺.exe`。
 
 ---
 
@@ -271,7 +272,7 @@
   - 构建：`笺.exe` 743,863 字节，零 error / 零 warning，MD5 `3eb2c2bc7995995869ed1a6ee49e470c`。
 
 ### AE. v1.9.3 便笺滚到底 / 照片放大后正文消失（加急）
-- **反馈**：桌面「CMC数竞初赛」便笺，滚轮翻到最底、或把图片放大，正文反而被挤掉消失。
+- **反馈**：桌面上带照片的便笺，滚轮翻到最底、或把图片放大，正文反而被挤掉消失（个人标题已省略）。
 - **根因**（四处叠加）：
   1. **正文被滚了两次**：布局 `noteview.c:638` 已经 `NL->textTop -= NL->scroll`，
      绘制 `noteview.c:1227` 又 `r3.top = vTop - NL.scroll`。照片上移 1×、正文上移 2×，
@@ -289,7 +290,7 @@
     便笺 `reserve = imgSized ? keep : max(thUse, keep)`，其中 `keep = lhText+gap + 开头空行数×lhText`；
     墙卡片同理 `keep = textMin+gap + 开头空行数×lhSmall`；
     都夹到 `availBody`，`imgH = availBody - reserve - 文末版式的 gap`。
-    开头空行也算：用户的「CMC数竞初赛」正文就是 `\n\n高等代数…`，只留一行会留下空行、字仍在下面，
+    开头空行也算：正文以 `\n\n` 开头时，只留一行会留下空行、字仍在下面，
     所以把开头连续空行一并算进预留（`note_lead_blank_lines` / `st_lead_blank_lines`）。
     `IMG_MIN_H` 下限只在 `availBody - minH >= reserve` 时生效；`slot` 不超过 `imgH`。
   - 拖动夹紧同步：`note_img_clamp` 用同样的 keep 高度；`st_img_min_text(L, sc)` 改成按“这张日程有没有正文”返回，不再看 `imgSized`。
@@ -302,8 +303,8 @@
     往下滚能看到其余正文（`note_moveclamp.png` 为拖动夹紧验证：照片停在正文最后一行上方）。
   - 回归：纯正文便笺（`note_text_only.png`）滚动正常；纯照片便笺（`note_photo_only.png`）照片仍占满整个正文区。
   - 便笺墙卡片：滚到底最后一行可见（`card_scroll_bottom.png`），上滚时内容被裁在视口内、不压标题。
-  - 用户在用的真实便笺「CMC数竞初赛」（正文开头有两个空行、照片 1000‰）：顶部照片 + **实际的文字行可见**
-    （`real_cmc_v193_top.png`）；滚轮往下文字仍在、不再消失（`real_cmc_v193_bottom.png`）；滚回顶部恢复（`real_cmc_v193_back.png`）。
+  - 实际使用便笺（个人标题已省略；正文开头有两个空行、照片 1000‰）：顶部照片 + **实际的文字行可见**；
+    滚轮往下文字仍在、不再消失，滚回顶部恢复。关联原始截图文件名已省略。
   - 构建：`笺.exe` 741,371 字节，零 error / 零 warning，MD5 `fb78b62d65990d4c941bb4bed4d996ee`。
 
 ### AD. v1.9.2 照片「指针离开就消失」+ 点选编辑（加急）
@@ -448,7 +449,7 @@
 - 接入：`remind_fire()` 里**先收旧弹窗、再开新弹窗、最后播新铃声**（顺序很重要：弹窗销毁时会 `snd_stop()`）；
   `remp_proc` 的 `WM_DESTROY`（= 点击关闭 / 30 秒自动关）`snd_stop()`。
   编辑窗「铃声…」菜单：`试听（在本程序里播放）` 4303 / `停止铃声` 4306 / `用默认播放器打开` 4307。
-- 编译链接要加 `-lwinmm -lmfplat -lmf -lmfuuid`（build.bat / Makefile 都已加）。
+- 编译需要链接 `winmm mfplat mf mfuuid`，已由 CMake 的 `target_link_libraries` 配置。
 
 ### U. CSV 课表导入（v1.5）
 - 需求：导入 CSV 课表文件 → **识别格式内容**（**正则匹配**保证精度）→ 逐行**生成便笺形式**；
@@ -689,7 +690,7 @@
 - `GetTextExtentExPointW` 的 `lpnDx` 对 CJK 不可靠 → 换行用二分 + `GetTextExtentPoint32W`。
 - `rtf_to_plain` 的 `BYTE bytes[4]` 太小，长中文段落会被截断（已改成 1024 + 快满就 flush）。
 - 照片出现就吞掉正文（`drewBig` 门控）是错的：`drewBig` 只该跳过底部缩略图行。
-- **编码纪律**：`build.bat` 必须是 **GBK + CRLF**（用 Python 改它时要用 `newline='\r\n'`，否则 cmd 报「'UT' 不是内部或外部命令」）；其余源文件 UTF-8，`stickies.c` 里的中文字面量全部写成 `\uXXXX` 转义（否则 gcc 执行字符集报错）。
+- **编码纪律**：CMake 配置与源文件使用 UTF-8；CMake 已为编译器设置 UTF-8 源码编码，`stickies.c` 里的中文字面量保留现有的 `\uXXXX` 转义形式。
 - **补丁脚本纪律**：Python 改文件必须**检测并保留各文件自身编码**；`s = rep(s, ...)` 一定要**赋值**（漏赋值就是静默空操作）；改完用 `findstr` 复核；`py -c` 多行在 cmd 里会静默失败 → 写成脚本文件；PowerShell 内联中文/here-string 会被乱码 → 写成 .ps1 文件。
 - **不要动用户自己的文件**：`z3.py`~`z6.py` 是用户写的，`image.c` 里的 `FullEnt` / `img_get_full` 也是用户加的（保留 `IMG_FULL_CACHE` 宏，只加兼容入口 `img_draw_cover_full`）。
 - **验证方式**：这台机器上截图经常输给前台竞争（ZCode/浏览器盖住窗口），所以以**数值/文件级验证**为主（临时探针 dump 成 txt/bmp、`findstr` 复核、`certutil -hashfile` 比对），需要看界面时才 `SetForegroundWindow` + 截局部区域。
@@ -844,18 +845,21 @@
 
 ## 6. 继续工作的操作手册
 
+在源码目录打开命令行。以下桌面路径使用当前用户的环境变量，不绑定开发者账户。
+
 ```bat
 rem 1) 编译前先关掉正在运行的实例（否则链接失败）
 taskkill /IM 笺.exe /F
 rem 2) 构建
-cd /d C:\Users\Crychic\.zcode\workspace\default\ZSchedule
-build.bat
+rem 先将 MinGW-w64 / w64devkit 的 bin 加入 PATH
+cmake -S . -B build -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release --parallel
 rem 3) 同步到桌面（用户日常用的是桌面那份）
-copy /Y 笺.exe C:\Users\Crychic\Desktop\笺.exe
+copy /Y "build\bin\Release\笺.exe" "%USERPROFILE%\Desktop\笺.exe"
 ```
 
 - 改完务必**检查编译输出是否零 error / 零 warning**（`-Wall -Wextra` 全开）。
-- 改了 `zsched.rc` / `app.ico` 后确认 `windres` 真的重跑（`zsched_res.o` 的时间戳要更新）。
+- 改了 `zsched.rc` / `zsched.manifest` / `app.ico` 后确认 CMake 重新编译资源并链接主程序。
 - 品牌相关字符串只应出现在 `APP_TITLE` / `APP_ICON_ID` / `zsched.rc` 三处，别散落硬编码。
 - **版本记录（git）**：本机没装 git，仓库是用 dulwich（纯 Python）建的，位于工程目录 `.git`：
   ```bat
@@ -868,7 +872,7 @@ copy /Y 笺.exe C:\Users\Crychic\Desktop\笺.exe
 - **给某个旧版本打包一份独立备份**（v1.4 / v1.5 都是这么做的）：
   1. 用 dulwich 遍历目标提交的文件树写到新目录（`Tree.items()` 是 `(name, mode, sha)` 三元组；
      `mode & 0o040000` 是子目录要递归；`repo[sha].data` 是文件内容）；
-  2. 在新目录里跑 `build.bat`（它会自动找 `..\tools\w64devkit`）→ 得到可运行的 `笺.exe`；
+  2. 若导出的版本包含 `CMakeLists.txt`，在新目录里执行本节的 CMake 命令，产物为 `build\bin\Release\笺.exe`；更早版本按该版本自带的构建说明操作；
   3. 写一份 `备份说明.md`：来自哪个提交、与当前版本的差异、数据是否兼容、怎么运行/编译。
   4. 数据文件（`zsched_*.txt`）**不要**放进备份——它们是你的日程；版本之间数据格式兼容
      （v1.5 只多两行 `sndmode=`/`sndfile=`，旧版读到会忽略）。
@@ -893,7 +897,7 @@ copy /Y 笺.exe C:\Users\Crychic\Desktop\笺.exe
 | **照片放大仍留一行** | `imgb0=0,0,1000,300`（满宽照片）后底部仍有一行正文；往下滚可见其余正文；拖照片本体停在正文最后一行上方（`note_drag_clamp.png`）|
 | **便笺墙卡片** | 卡片滚到底最后一行可见（`card_scroll_bottom.png`）；上滚时内容裁在视口内、不压标题 |
 | **回归** | 纯正文便笺滚动正常（`note_text_only.png`）；纯照片便笺照片仍占满正文区（`note_photo_only.png`）|
-| **用户真实便笺（CMC）** | 正文是 `\n\n高等代数…`：顶部照片 + **实际文字行可见**（`real_cmc_v193_top.png`）；滚轮往下文字仍在（`real_cmc_v193_bottom.png`）；滚回顶部恢复（`real_cmc_v193_back.png`）|
+| **实际使用便笺回归（已脱敏）** | 正文以两个空行开头：顶部照片与**实际文字行均可见**；滚轮向下及滚回顶部后文字仍正常显示。个人正文及原始截图文件名已省略 |
 | 构建（v1.9.2，上一轮） | `笺.exe` **739,835 字节**，零 error / 零 warning；MD5 `52f3d895fe494b170aafd1c1e4568b8e` |
 | **指针离开照片不消失（截图）** | 独立便笺 400×1200 竖图：指针停在照片上（`_tools/shots/v192/note_hover.png`）→ **无手柄**；移到便笺外 (60,950)（`note_leave.png`）→ **照片仍在**、位置不变（v1.9.1 会整张消失）|
 | **点选才进编辑** | 单击照片（`note_select.png`）：虚线框 + 四角手柄，**严丝合缝贴住照片**；悬停时没有任何手柄（对照 `note_hover.png`）|
@@ -903,7 +907,7 @@ copy /Y 笺.exe C:\Users\Crychic\Desktop\笺.exe
 | **便笺墙卡片同一口径** | 清单视图：悬停照片无手柄（`card_hover.png`）；单击出手柄且贴住照片（`card_select.png`）；右键取消选中 + 卡片菜单（`card_rclick.png`）|
 | **框被最小尺寸撑开（诊断 + 修复）** | 日志实测 `cw=390 wf=400 slot=283 → w=94 h=283`，却被 `minW=156` 撑成 156 宽（照片 94 宽，左右各空 31px）；删除两处布局钳制后框与照片严丝合缝（独立便笺同样）|
 | **v1.9.2 备份包** | `py _tools\export_commit.py HEAD ..\ZSchedule_backup_v1.9.2_20261017` 导出 53 个文件 → 在备份目录 `build.bat` 编译成功；三份 `笺.exe`（工程 / 桌面 / 备份）**MD5 完全相同**（`52f3d895fe494b170aafd1c1e4568b8e`，739,835 字节）✓ 备份 = 当前最新版 |
-| **用户真实数据上确认** | 桌面实例（`C:\Users\Crychic\Desktop\笺.exe`）启动后，「CMC数竞初赛」便笺照片正常显示（`_tools/shots/v192/real_note_cmc.png`）——原先指针一离开就消失的就是这张 |
+| **实际使用数据回归（已脱敏）** | 桌面实例启动后，带照片的便笺正常显示，指针离开后照片不再消失；个人标题及原始截图文件名已省略 |
 | 构建（v1.9.1，上一轮） | `笺.exe` **739,330 字节**，零 error / 零 warning；MD5 `94d0563465ad0539c0e235908ad5e4b6` |
 | **墙上照片完整显示（截图）** | 宽图 1200×300 在 340×300 卡片里整张可见（红框 + 四角色块都在），框与照片同比例、没有白边；竖图同理（`_tools/shots/v191/`）|
 | **墙上四角缩放** | 拖右下角：`imgb0` `0,522,1000,496` → `0,522,839,413`（左上角不动、宽高同比例）；Ctrl+滚轮后 `imgb0` 不变 |
@@ -951,9 +955,9 @@ copy /Y 笺.exe C:\Users\Crychic\Desktop\笺.exe
 | **v1.5 备份包** | `py _tools\export_commit.py HEAD ..\ZSchedule_backup_v1.5_20261017` 导出 47 个文件 → 在备份目录里 `build.bat` 编译成功；三份 `笺.exe`（工程 / 桌面 / 备份）**MD5 完全相同**（`60a89c286917a0fffcb58eaacc8bc51f`，629,353 字节）✓ 备份 = 当前最新版 |
 | **git** | 本轮提交 `c98cf362`（24 个文件入库，8 项被 `.gitignore` 忽略：`笺.exe` / `zsched_res.o` / 数据三件 / `zsched_history\` / `_tools\bin\` / `_tools\shots\`）|
 | 构建（v1.4，上一轮） | `笺.exe` 593,462 字节，零 error / 零 warning；「下一节」名称行 / 悬停 / 点击跳转 / 独立开关 / 每秒刷新均已验证（详见上一版文档） |
-| **「下一节」名称行（截图）** | 课表便笺倒计时下方显示 `下一节 英语精读与写作 22:51`；课名长时先丢掉时间、课名完整不被截断（`…（第二课堂）` 那种长名字实测完整显示） |
+| **「下一节」名称行（已脱敏）** | 课表便笺倒计时下方显示下一节课程名称与开始时间；课名长时先省略时间，课名完整不被截断。个人课程名称和时间已省略 |
 | **悬停反馈（截图）** | 鼠标移到名称行 → 文字变蓝并加下划线（光标同时变手型，`WM_SETCURSOR` 按 `ttHot`） |
-| **点击跳转（集成）** | 点名称行后编辑窗打开；用「课表：显示下一节课名称」开关识别改到的是哪条：保存后 `ttnext` 变成 `['ttnext=1','ttnext=0']`，即**第 2 条（英语…）= 下一节课**那条 ✓（不是便笺自己的“概论”） |
+| **点击跳转（集成，已脱敏）** | 点名称行后编辑窗打开；用「课表：显示下一节课名称」开关识别改到的是哪条：保存后 `ttnext` 变成 `['ttnext=1','ttnext=0']`，确认修改的是**第 2 条（下一节课）**，不是当前便笺。个人课程名称已省略 |
 | **独立开关（截图）** | 关掉 `IDM_NOTE_TTNEXT` 后名称行消失、倒计时框变矮；再打开恢复（数据文件里 `ttnext=1`） |
 | **每秒刷新** | 秒级倒计时（`cdunit=秒`）相隔 6 秒的两张便笺截图**字节不同**（倒计时在走）；对照组：分精度下相隔 5 秒两张**完全相同** |
 | **最新版备份** | 从 git 最新提交（HEAD，v1.4）导出 34 项到 `..\ZSchedule_backup_v1.4_20261016\`，在备份目录里编译成功；里面的 `笺.exe` 与工程、桌面三份**MD5 完全相同**（`c32fc6491f1277e7e66748666bcbf061`，593,462 字节）——即备份确实是当前最新版 |

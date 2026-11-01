@@ -259,21 +259,58 @@
 
 ## 二、编译
 
+构建系统为 **CMake 3.21+**。目标平台为 Windows，支持 MinGW-w64 / w64devkit，
+或 Visual Studio 2019 16.8+（安装 C++ 桌面开发工具和 Windows SDK）。使用 C11 编译源码。
+**编译前请先关闭正在运行的 `笺.exe`**。
+
+以下命令既可在仓库根目录执行，也可在本源码目录执行；产物都放在所选 `build` 目录下。
+
+### MinGW-w64 / w64devkit
+
+将工具链的 `bin` 加入 `PATH`，确保 `gcc`、`windres`、`mingw32-make` 和 `cmake` 可用：
+
 ```bat
-build.bat
+cmake -S . -B build -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release --parallel
 ```
 
-自动识别 MinGW-w64（含项目旁 `..\tools\w64devkit`）或 MSVC；也可用 `mingw32-make`。等价的命令行：
+### Visual Studio / MSVC
+
+在安装了 Visual Studio 的 Windows 上执行；首次配置由 CMake 选择 Visual Studio 生成器：
 
 ```bat
-windres -i zsched.rc -o zsched_res.o
-gcc -O2 -Wall -Wextra -DUNICODE -D_UNICODE -o 笺.exe ^
-    main.c model.c image.c richtext.c weekview.c imgview.c stickies.c noteview.c paper.c ui_main.c ui_edit.c csvimport.c sound.c ^
-    zsched_res.o -mwindows -lcomctl32 -lgdi32 -lcomdlg32 -lshell32 -lmsimg32 ^
-    -lgdiplus -lole32 -lshlwapi -luser32 -lwinmm -lmfplat -lmf -lmfuuid
+cmake -S . -B build-msvc -A x64
+cmake --build build-msvc --config Release --parallel
 ```
 
-要求：GCC ≥ 7 或 MSVC 2015+；最低运行系统 Windows 7。**编译前请先关闭正在运行的 笺.exe**。
+MSVC 构建使用 UTF-8 源码编码和静态 C 运行库。图标与 manifest 由资源编译器统一嵌入，
+不会因为缺少资源编译器而生成没有图标或 DPI 配置的程序。
+
+### 产物、Debug 与清理
+
+- 主程序：`build\bin\Release\笺.exe`（上述 MSVC 示例为 `build-msvc\bin\Release\笺.exe`）。
+- MinGW / Ninja 单配置生成器：配置时设置 `-DCMAKE_BUILD_TYPE=Debug`，再构建。
+- Visual Studio 等多配置生成器：使用 `cmake --build build-msvc --config Debug --parallel`。
+- Debug 产物位于对应构建目录的 `bin\Debug\`；所有中间文件留在构建目录内。
+- 清理当前配置：`cmake --build build --config Release --target clean`。
+- 切换编译器或生成器时使用新的构建目录，例如 `build-msvc`，避免复用旧的 CMake 缓存。
+
+程序默认数据目录随可执行文件所在位置变化；已有数据可通过「文件 → 数据保存位置」重新选择。
+
+### 可选的窗口测试工具
+
+默认只构建主程序。需要 `pwin`、`pmsg`、`pmouse`、`pmenu` 时，在同一构建目录启用：
+
+```bat
+cmake -S . -B build -DZSCHEDULE_BUILD_TOOLS=ON
+cmake --build build --config Release --parallel
+```
+
+四个工具同样输出到 `build\bin\Release\`。
+其他一次性探针源码不包含在此选项中。
+
+在 Linux 等系统上需要使用 Windows 交叉编译工具链，并在配置时通过 `CMAKE_TOOLCHAIN_FILE`
+指定；直接使用宿主 Linux 编译器会收到明确的目标平台错误。
 
 ---
 
@@ -349,7 +386,7 @@ ZSchedule/
 ├─ csvimport.c       CSV 课表导入：内置极简正则引擎（无 <regex.h> 时的替代）+ 格式识别 + 确认框 + 生成课表便笺
 ├─ sound.c           自选铃声播放：Media Foundation 拓扑 → MCI → 系统默认程序，三级兜底
 ├─ zsched.rc / .manifest   嵌入应用清单（视觉样式 + DPI 感知）
-├─ build.bat / Makefile    构建脚本
+├─ CMakeLists.txt          CMake 构建配置（主程序与可选窗口工具）
 ├─ CHANGELOG.md            版本记录（每一轮的新增 / 修复）
 ├─ progress.md             实现笔记与交接（设计取舍、踩过的坑、验证记录）
 └─ README.md
